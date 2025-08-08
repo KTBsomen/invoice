@@ -6,6 +6,7 @@ import (
 	"html"
 	"io"
 	"log"
+	"os"
 	"regexp"
 
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -197,11 +199,16 @@ func cleanAIHTML(aiResp string) string {
 
 func main() {
 	initBrowser()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	pool := llmpool.NewPool()
 	pool.AddProvider(&llmpool.Provider{
 		Name:              "groq-fast",
 		Type:              llmpool.ProviderGroq,
-		APIKey:            "",
+		APIKey:            os.Getenv("API_1"),
 		BaseURL:           "https://api.groq.com/openai/v1",
 		Model:             "openai/gpt-oss-20b",
 		Priority:          1,
