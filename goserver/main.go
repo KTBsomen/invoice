@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
+	"html"
 	"io"
 	"log"
+	"regexp"
+
 	"sync"
+
+	"server/llmpool"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -110,10 +116,100 @@ func generatePDFFromHTML(html string) ([]byte, error) {
 
 	return io.ReadAll(reader)
 }
+func checkAuth(res *fiber.Ctx) error {
+	if res.Get("Authorization") != "Bearer 123" {
+		return res.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	return res.Next()
+}
+
+const systemPrompt string = `
+> **If an image is provided as base64, first decode it visually and use it as the design reference for the HTML template.**
+
+You are a **professional invoice template designer** who creates clean, elegant **HTML templates** with **inline CSS** for styling.
+
+You can interpret **base64-encoded images** and recreate their design as **fully self-contained HTML**.
+
+**Variable Naming Rules:**
+
+* Use **double curly braces** for placeholders: {{...}}.
+* Use **meaningful names**: {{name}}, {{company_name}}.
+* For lists (e.g., invoice items), use **dot notation**: {{list.item_name}}, {{list.price}}, {{list.gst}}.
+* **Important:** When showing list/table data, **write only one table row** with placeholders. This will be looped later by the templating engine.
+
+**Design Guidelines:**
+
+1. Output **only HTML with inline CSS**, no external styles or scripts.
+2. Keep designs **professional, modern, and readable**.
+3. Use semantic HTML structure (e.g., <header>, <table>, <footer>).
+4. Ensure consistent spacing, alignment, and typography.
+5. If the design contains repeating elements (invoice items, products, etc.), **only include a single placeholder row** in the HTML.
+6. Recreate colors, spacing, fonts, and layout from the given base64 image as closely as possible.
+
+**Example (Structure Only):**
+
+
+<html>
+  <body>
+    <header>
+      <h1>{{company_name}}</h1>
+      <p>{{company_address}}</p>
+    </header>
+    <table>
+      <tr>
+        <th>Item</th>
+        <th>Qty</th>
+        <th>Price</th>
+      </tr>
+      <tr>
+        <td>{{list.item_name}}</td>
+        <td>{{list.quantity}}</td>
+        <td>{{list.price}}</td>
+      </tr>
+    </table>
+    <footer>
+      <p>Total: {{total_amount}}</p>
+    </footer>
+  </body>
+</html>
+
+
+`
+
+type AIResponse struct {
+	Response string `json:"response"`
+}
+
+func cleanAIHTML(aiResp string) string {
+	// Step 1: Strip ```html and ``` markers
+	re := regexp.MustCompile("(?s)```html\\s*(.*?)\\s*```")
+	matches := re.FindStringSubmatch(aiResp)
+	var cleaned string
+	if len(matches) > 1 {
+		cleaned = matches[1]
+	} else {
+		cleaned = aiResp
+	}
+
+	// Step 2: Unescape \u003c, \u003e, etc.
+	return html.UnescapeString(cleaned)
+}
 
 func main() {
 	initBrowser()
+	pool := llmpool.NewPool()
+	pool.AddProvider(&llmpool.Provider{
+		Name:              "groq-fast",
+		Type:              llmpool.ProviderGroq,
+		APIKey:            "",
+		BaseURL:           "https://api.groq.com/openai/v1",
+		Model:             "openai/gpt-oss-20b",
+		Priority:          1,
+		RequestsPerMinute: 30,
+	})
+
 	app := fiber.New()
+
 	app.Use(func(res *fiber.Ctx) error {
 		res.Set("Access-Control-Allow-Origin", "*")
 		res.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -124,6 +220,34 @@ func main() {
 		}
 
 		return res.Next()
+	})
+	app.Post("/create/ai", checkAuth, func(res *fiber.Ctx) error {
+		var body struct {
+			Message string `json:"prompt"`
+		}
+
+		if err := res.BodyParser(&body); err != nil {
+			return res.Status(400).JSON(fiber.Map{"error": "Invalid JSON body"})
+		}
+		// Use the pool
+		req := &llmpool.ChatRequest{
+			Messages: []llmpool.ChatMessage{
+				{Role: "system",
+					Content: systemPrompt},
+				{Role: "user", Content: body.Message},
+			},
+			Temperature: 0.7,
+			MaxTokens:   8000,
+		}
+
+		resp, err := pool.Chat(context.Background(), req)
+		if err != nil {
+			log.Fatal(err)
+		}
+		//fmt.Print(resp.Content)
+
+		return res.Status(200).JSON(fiber.Map{"response": cleanAIHTML(resp.Content)})
+
 	})
 	app.Get("/", func(res *fiber.Ctx) error {
 		return res.SendFile("../index.html")
