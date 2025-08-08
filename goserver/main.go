@@ -389,6 +389,7 @@ func main() {
 	log.Println("Running at http://localhost:8080")
 	log.Println("Endpoints:")
 	log.Println("  Get /                - get index file")
+	log.Println("  POST /create/ai      - generate template via ai pool")
 	log.Println("  GET  /extract        - Extract metadata from URL")
 	log.Println("  POST /extract-html   - Extract metadata from HTML content")
 	log.Println("  GET  /pdf            - Generate PDF from URL")
