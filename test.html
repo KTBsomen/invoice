@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Designer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/grapesjs/0.20.4/css/grapes.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/grapesjs/0.20.4/grapes.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/grapesjs-preset-webpage/1.0.2/grapesjs-preset-webpage.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/grapesjs-blocks-basic/1.0.1/grapesjs-blocks-basic.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #f8fafc;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .designer-container {
+            display: flex;
+            height: 100vh;
+            background: #f8fafc;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .sidebar-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .page-settings {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        
+        .page-settings h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #374151;
+        }
+        
+        .setting-group {
+            margin-bottom: 12px;
+        }
+        
+        .setting-group label {
+            display: block;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .setting-group select, .setting-group input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .blocks-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        .block-category {
+            margin-bottom: 20px;
+        }
+        
+        .block-category h4 {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        
+        .blocks-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .block-item {
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 12px;
+            color: #374151;
+        }
+        
+        .block-item:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+            transform: translateY(-1px);
+        }
+        
+        .block-item i {
+            font-size: 20px;
+            margin-bottom: 6px;
+            display: block;
+            color: #6b7280;
+        }
+        
+        .block-item:hover i {
+            color: #3b82f6;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .toolbar {
+            height: 60px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 10;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .toolbar-btn {
+            padding: 8px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            color: #374151;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .toolbar-btn:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+        
+        .toolbar-btn.primary {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        .toolbar-btn.primary:hover {
+            background: #2563eb;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            background: #f1f5f9;
+            position: relative;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+        
+        .page-preview {
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .page-number {
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #374151;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        #gjs {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+        }
+        
+        .properties-panel {
+            width: 300px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            overflow-y: auto;
+        }
+        
+        .variable-element {
+            background: rgba(59, 130, 246, 0.1) !important;
+            border: 2px dashed #3b82f6 !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            color: #1d4ed8 !important;
+            font-weight: 500 !important;
+            display: inline !important;
+            cursor: pointer !important;
+        }
+        
+        .list-variable {
+            background: rgba(16, 185, 129, 0.1) !important;
+            border: 2px dashed #10b981 !important;
+            padding: 8px !important;
+            border-radius: 6px !important;
+            color: #065f46 !important;
+            display: block !important;
+            margin: 4px 0 !important;
+        }
+        
+        .gjs-pn-panel {
+            background: white !important;
+        }
+        
+        .gjs-pn-buttons {
+            background: #f8fafc !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            padding: 10px !important;
+        }
+        
+        /* Page size styles */
+        .page-a4 { width: 210mm; height: 297mm; }
+        .page-letter { width: 8.5in; height: 11in; }
+        .page-legal { width: 8.5in; height: 14in; }
+        .page-a3 { width: 297mm; height: 420mm; }
+        
+        .shortcuts-help {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1f2937;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            max-width: 200px;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+        }
+        
+        .shortcuts-help.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .custom-css-panel {
+            background: #1f2937;
+            color: white;
+            padding: 15px;
+            border-top: 1px solid #374151;
+        }
+        
+        .custom-css-panel h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .custom-css-panel textarea {
+            width: 100%;
+            height: 120px;
+            background: #111827;
+            border: 1px solid #374151;
+            color: white;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+        
+        @media print {
+            .page-preview {
+                box-shadow: none !important;
+                margin: 0 !important;
+                page-break-after: always;
+            }
+            
+            .page-number {
+                display: none !important;
+            }
+            
+            .sidebar, .toolbar, .properties-panel {
+                display: none !important;
+            }
+            
+            .canvas-container {
+                padding: 0 !important;
+                background: white !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="designer-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Invoice Designer</h2>
+                <p>Drag & drop to create professional invoices</p>
+            </div>
+            
+            <div class="page-settings">
+                <h3>Page Settings</h3>
+                <div class="setting-group">
+                    <label>Paper Size</label>
+                    <select id="paperSize">
+                        <option value="a4">A4 (210×297mm)</option>
+                        <option value="letter">Letter (8.5×11")</option>
+                        <option value="legal">Legal (8.5×14")</option>
+                        <option value="a3">A3 (297×420mm)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Orientation</label>
+                    <select id="orientation">
+                        <option value="portrait">Portrait</option>
+                        <option value="landscape">Landscape</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Margins (mm)</label>
+                    <input type="number" id="margins" value="20" min="0" max="50">
+                </div>
+            </div>
+            
+            <div class="blocks-section">
+                <div class="block-category">
+                    <h4>Layout Elements</h4>
+                    <div class="blocks-grid">
+                        <div class="block-item" data-block="header">
+                            <i class="fas fa-heading"></i>
+                            Header
+                        </div>
+                        <div class="block-item" data-block="text">
+                            <i class="fas fa-font"></i>
+                            Text Block
+                        </div>
+                        <div class="block-item" data-block="image">
+                            <i class="fas fa-image"></i>
+                            Image
+                        </div>
+                        <div class="block-item" data-block="table">
+                            <i class="fas fa-table"></i>
+                            Table
+                        </div>
+                        <div class="block-item" data-block="divider">
+                            <i class="fas fa-minus"></i>
+                            Divider
+                        </div>
+                        <div class="block-item" data-block="spacer">
+                            <i class="fas fa-arrows-alt-v"></i>
+                            Spacer
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="block-category">
+                    <h4>Invoice Elements</h4>
+                    <div class="blocks-grid">
+                        <div class="block-item" data-block="logo-section">
+                            <i class="fas fa-building"></i>
+                            Logo Area
+                        </div>
+                        <div class="block-item" data-block="invoice-info">
+                            <i class="fas fa-info-circle"></i>
+                            Invoice Info
+                        </div>
+                        <div class="block-item" data-block="billing">
+                            <i class="fas fa-user"></i>
+                            Billing To
+                        </div>
+                        <div class="block-item" data-block="items-table">
+                            <i class="fas fa-list-ul"></i>
+                            Items Table
+                        </div>
+                        <div class="block-item" data-block="totals">
+                            <i class="fas fa-calculator"></i>
+                            Totals
+                        </div>
+                        <div class="block-item" data-block="footer">
+                            <i class="fas fa-file-text"></i>
+                            Footer
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="block-category">
+                    <h4>Variables</h4>
+                    <div class="blocks-grid">
+                        <div class="block-item" data-block="variable">
+                            <i class="fas fa-code"></i>
+                            Variable
+                        </div>
+                        <div class="block-item" data-block="date">
+                            <i class="fas fa-calendar"></i>
+                            Date
+                        </div>
+                        <div class="block-item" data-block="currency">
+                            <i class="fas fa-dollar-sign"></i>
+                            Currency
+                        </div>
+                        <div class="block-item" data-block="list-item">
+                            <i class="fas fa-list"></i>
+                            List Item
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button class="toolbar-btn" onclick="undoAction()">
+                        <i class="fas fa-undo"></i> Undo
+                    </button>
+                    <button class="toolbar-btn" onclick="redoAction()">
+                        <i class="fas fa-redo"></i> Redo
+                    </button>
+                    <button class="toolbar-btn" onclick="clearCanvas()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <button class="toolbar-btn" onclick="previewMode()">
+                        <i class="fas fa-eye"></i> Preview
+                    </button>
+                    <button class="toolbar-btn primary" onclick="exportPDF()">
+                        <i class="fas fa-download"></i> Export PDF
+                    </button>
+                    <button class="toolbar-btn" onclick="toggleHelp()">
+                        <i class="fas fa-question"></i> Help
+                    </button>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <div class="page-preview page-a4" id="pageContainer">
+                    <div id="gjs"></div>
+                    <div class="page-number">Page 1</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Properties Panel -->
+        <div class="properties-panel" id="propertiesPanel">
+            <div id="gjs-pn-views-container"></div>
+            
+            <div class="custom-css-panel">
+                <h4>Custom CSS</h4>
+                <textarea id="customCSS" placeholder="Add your custom CSS here..."></textarea>
+                <button class="toolbar-btn" style="margin-top: 10px; width: 100%;" onclick="applyCustomCSS()">
+                    Apply CSS
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="shortcuts-help" id="shortcutsHelp">
+        <h4 style="margin-bottom: 10px;">Keyboard Shortcuts</h4>
+        <div><kbd>Ctrl+Z</kbd> Undo</div>
+        <div><kbd>Ctrl+Y</kbd> Redo</div>
+        <div><kbd>Alt+V</kbd> Add Variable</div>
+        <div><kbd>Alt+T</kbd> Add Text</div>
+        <div><kbd>Alt+I</kbd> Add Image</div>
+        <div><kbd>Delete</kbd> Delete Element</div>
+        <div><kbd>Escape</kbd> Deselect</div>
+    </div>
+
+    <script>
+        let editor;
+        let currentPage = 1;
+        let totalPages = 1;
+        
+        // Initialize GrapesJS
+        function initEditor() {
+            editor = grapesjs.init({
+                container: '#gjs',
+                height: '100%',
+                width: '100%',
+                storageManager: false,
+                
+                // Canvas settings for better layout control
+                canvas: {
+                    styles: [`
+                        body { margin: 0; padding: 20mm; font-family: Arial, sans-serif; }
+                        .gjs-dashed { border: 2px dashed #3b82f6 !important; }
+                        .gjs-selected { outline: 2px solid #3b82f6 !important; }
+                    `]
+                },
+                
+                // Device manager for responsive design
+                deviceManager: {
+                    devices: [{
+                        name: 'Desktop',
+                        width: '',
+                    }]
+                },
+                
+                // Panels configuration - simplified to avoid resizer issues
+                panels: {
+                    defaults: [{
+                        id: 'basic-actions',
+                        el: '#gjs-pn-views-container',
+                        buttons: [{
+                            id: 'show-layers',
+                            active: true,
+                            label: '<i class="fa fa-bars"></i>',
+                            command: 'show-layers',
+                            togglable: false,
+                        }, {
+                            id: 'show-style',
+                            active: true,
+                            label: '<i class="fa fa-paint-brush"></i>',
+                            command: 'show-styles',
+                            togglable: false,
+                        }],
+                    }]
+                },
+                
+                // Layer manager
+                layerManager: {
+                    appendTo: '#gjs-pn-views-container'
+                },
+                
+                // Style Manager
+                styleManager: {
+                    appendTo: '#gjs-pn-views-container',
+                    sectors: [{
+                        name: 'Layout',
+                        open: false,
+                        buildProps: ['display', 'position', 'top', 'right', 'left', 'bottom', 'width', 'height', 'max-width', 'min-height', 'margin', 'padding'],
+                        properties: [{
+                            property: 'display',
+                            type: 'select',
+                            defaults: 'block',
+                            list: [
+                                { value: 'block', name: 'Block' },
+                                { value: 'inline-block', name: 'Inline Block' },
+                                { value: 'inline', name: 'Inline' },
+                                { value: 'flex', name: 'Flex' },
+                                { value: 'grid', name: 'Grid' },
+                                { value: 'none', name: 'None' }
+                            ]
+                        }, {
+                            property: 'position',
+                            type: 'select',
+                            defaults: 'static',
+                            list: [
+                                { value: 'static', name: 'Static' },
+                                { value: 'relative', name: 'Relative' },
+                                { value: 'absolute', name: 'Absolute' },
+                                { value: 'fixed', name: 'Fixed' }
+                            ]
+                        }]
+                    }, {
+                        name: 'Typography',
+                        open: false,
+                        buildProps: ['font-family', 'font-size', 'font-weight', 'letter-spacing', 'color', 'line-height', 'text-align', 'text-decoration', 'text-transform'],
+                        properties: [{
+                            property: 'font-family',
+                            type: 'select',
+                            defaults: 'Arial, sans-serif',
+                            list: [
+                                { value: 'Arial, sans-serif', name: 'Arial' },
+                                { value: 'Helvetica, sans-serif', name: 'Helvetica' },
+                                { value: 'Times, serif', name: 'Times' },
+                                { value: 'Courier, monospace', name: 'Courier' },
+                                { value: 'Georgia, serif', name: 'Georgia' }
+                            ]
+                        }]
+                    }, {
+                        name: 'Background & Borders',
+                        open: false,
+                        buildProps: ['background-color', 'background-image', 'border-radius', 'border', 'box-shadow']
+                    }, {
+                        name: 'Spacing',
+                        open: false,
+                        buildProps: ['margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left']
+                    }]
+                }
+            });
+            
+            // Wait for editor to be fully loaded
+            editor.on('load', () => {
+                setupBlocks();
+                setupComponents();
+                setupKeyboardShortcuts();
+                setupPageSettings();
+                loadDefaultTemplate();
+                
+                // Add custom commands
+                editor.Commands.add('show-layers', {
+                    run(editor) {
+                        const lm = editor.LayerManager;
+                        const container = document.querySelector('#gjs-pn-views-container');
+                        container.innerHTML = '';
+                        lm.render();
+                        container.appendChild(lm.getConfig().appendTo ? lm.getEl() : lm.render().el);
+                    }
+                });
+                
+                editor.Commands.add('show-styles', {
+                    run(editor) {
+                        const sm = editor.StyleManager;
+                        const container = document.querySelector('#gjs-pn-views-container');
+                        container.innerHTML = '';
+                        sm.render();
+                        container.appendChild(sm.getConfig().appendTo ? sm.getEl() : sm.render().el);
+                    }
+                });
+            });
+        }
+        
+        // Setup predefined blocks
+        function setupBlocks() {
+            const bm = editor.BlockManager;
+            
+            // Clear default blocks
+            bm.getAll().reset();
+            
+            // Header block
+            bm.add('header', {
+                label: 'Header',
+                content: `
+                    <div style="padding: 20px 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 30px;">
+                        <h1 style="margin: 0; font-size: 32px; color: #1f2937; font-weight: bold;">INVOICE</h1>
+                    </div>
+                `
+            });
+            
+            // Text block
+            bm.add('text', {
+                label: 'Text',
+                content: `<div style="margin: 15px 0; font-size: 16px; line-height: 1.5; color: #374151;">Click to edit text</div>`
+            });
+            
+            // Logo section
+            bm.add('logo-section', {
+                label: 'Logo Section',
+                content: `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding: 20px 0;">
+                        <div style="flex: 1;">
+                            <div style="width: 120px; height: 60px; background: #f3f4f6; border: 2px dashed #d1d5db; display: flex; align-items: center; justify-content: center; color: #6b7280; margin-bottom: 15px;">
+                                LOGO
+                            </div>
+                            <h2 style="margin: 0; font-size: 24px; color: #1f2937;">Company Name</h2>
+                            <p style="margin: 5px 0 0 0; color: #6b7280;">Your business tagline</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <h1 style="margin: 0; font-size: 36px; color: #3b82f6; font-weight: bold;">INVOICE</h1>
+                            <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 18px;">#INV-001</p>
+                        </div>
+                    </div>
+                `
+            });
+            
+            // Invoice info
+            bm.add('invoice-info', {
+                label: 'Invoice Info',
+                content: `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px;">
+                        <div>
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #1f2937;">Invoice Date:</h3>
+                            <p style="margin: 0; color: #6b7280;">{{invoice_date}}</p>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #1f2937;">Due Date:</h3>
+                            <p style="margin: 0; color: #6b7280;">{{due_date}}</p>
+                        </div>
+                    </div>
+                `
+            });
+            
+            // Billing section
+            bm.add('billing', {
+                label: 'Billing Info',
+                content: `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+                        <div>
+                            <h3 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">From:</h3>
+                            <div style="color: #374151; line-height: 1.6;">
+                                <p style="margin: 0; font-weight: 600;">{{company_name}}</p>
+                                <p style="margin: 5px 0 0 0;">{{company_address}}</p>
+                                <p style="margin: 0;">{{company_city}}, {{company_state}} {{company_zip}}</p>
+                                <p style="margin: 5px 0 0 0;">{{company_phone}}</p>
+                                <p style="margin: 0;">{{company_email}}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Bill To:</h3>
+                            <div style="color: #374151; line-height: 1.6;">
+                                <p style="margin: 0; font-weight: 600;">{{client_name}}</p>
+                                <p style="margin: 5px 0 0 0;">{{client_address}}</p>
+                                <p style="margin: 0;">{{client_city}}, {{client_state}} {{client_zip}}</p>
+                                <p style="margin: 5px 0 0 0;">{{client_phone}}</p>
+                                <p style="margin: 0;">{{client_email}}</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            });
+            
+            // Items table
+            bm.add('items-table', {
+                label: 'Items Table',
+                content: `
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #e5e7eb;">
+                        <thead>
+                            <tr style="background: #f9fafb;">
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151;">Description</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 80px;">Qty</th>
+                                <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 100px;">Rate</th>
+                                <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 120px;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #f3f4f6; color: #374151;">{{item_description}}</td>
+                                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #f3f4f6; color: #374151;">{{item_quantity}}</td>
+                                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #f3f4f6; color: #374151;">{{item_rate}}</td>
+                                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #f3f4f6; color: #374151;">{{item_amount}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `
+            });
+            
+            // Totals section
+            bm.add('totals', {
+                label: 'Totals',
+                content: `
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 40px;">
+                        <div style="min-width: 300px;">
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                                <span style="color: #6b7280;">Subtotal:</span>
+                                <span style="color: #374151; font-weight: 500;">{{subtotal}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                                <span style="color: #6b7280;">Tax ({{tax_rate}}%):</span>
+                                <span style="color: #374151; font-weight: 500;">{{tax_amount}}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-top: 2px solid #e5e7eb; margin-top: 8px;">
+                                <span style="font-size: 18px; font-weight: 600; color: #1f2937;">Total:</span>
+                                <span style="font-size: 18px; font-weight: 600; color: #3b82f6;">{{total_amount}}</span>
+                            </div>
+                        </div>
+                    </div>
+                `
+            });
+            
+            // Footer
+            bm.add('footer', {
+                label: 'Footer',
+                content: `
+                    <div style="border-top: 1px solid #e5e7eb; padding-top: 30px; margin-top: 40px; text-align: center; color: #6b7280;">
+                        <p style="margin: 0 0 10px 0; font-size: 14px;">Thank you for your business!</p>
+                        <p style="margin: 0; font-size: 12px;">{{company_website}} | {{company_phone}} | {{company_email}}</p>
+                        <p style="margin: 10px 0 0 0; font-size: 12px;">Payment Terms: {{payment_terms}}</p>
+                    </div>
+                `
+            });
+            
+            // Variable block
+            bm.add('variable', {
+                label: 'Variable',
+                content: {
+                    type: 'variable',
+                    content: '{{variable_name}}',
+                    attributes: { class: 'variable-element' }
+                }
+            });
+            
+            // Date variable
+            bm.add('date', {
+                label: 'Date',
+                content: {
+                    type: 'variable',
+                    content: '{{current_date}}',
+                    attributes: { class: 'variable-element' }
+                }
+            });
+            
+            // Currency variable
+            bm.add('currency', {
+                label: 'Currency',
+                content: {
+                    type: 'variable',
+                    content: '{{currency_symbol}}',
+                    attributes: { class: 'variable-element' }
+                }
+            });
+            
+            // List item
+            bm.add('list-item', {
+                label: 'List Item',
+                content: {
+                    type: 'list-variable',
+                    content: '{{list.item_name}}',
+                    attributes: { class: 'list-variable' }
+                }
+            });
+            
+            // Basic elements
+            bm.add('image', {
+                label: 'Image',
+                content: `<img src="https://via.placeholder.com/300x200/f3f4f6/6b7280?text=Image" style="max-width: 100%; height: auto; border-radius: 4px;">`
+            });
+            
+            bm.add('table', {
+                label: 'Table',
+                content: `
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <tr>
+                            <td style="border: 1px solid #e5e7eb; padding: 12px;">Cell 1</td>
+                            <td style="border: 1px solid #e5e7eb; padding: 12px;">Cell 2</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #e5e7eb; padding: 12px;">Cell 3</td>
+                            <td style="border: 1px solid #e5e7eb; padding: 12px;">Cell 4</td>
+                        </tr>
+                    </table>
+                `
+            });
+            
+            bm.add('divider', {
+                label: 'Divider',
+                content: `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">`
+            });
+            
+            bm.add('spacer', {
+                label: 'Spacer',
+                content: `<div style="height: 30px;"></div>`
+            });
+        }
+        
+        // Setup custom components
+        function setupComponents() {
+            const dc = editor.DomComponents;
+            
+            // Variable component
+            dc.addType('variable', {
+                model: {
+                    defaults: {
+                        tagName: 'span',
+                        name: 'Variable',
+                        editable: true,
+                        droppable: false,
+                        attributes: { 
+                            'data-variable': 'true',
+                            'contenteditable': 'false'
+                        },
+                        traits: [{
+                            type: 'text',
+                            label: 'Variable Name',
+                            name: 'data-var-name',
+                            changeProp: 1
+                        }, {
+                            type: 'color',
+                            label: 'Background Color',
+                            name: 'data-bg-color',
+                            changeProp: 1
+                        }]
+                    },
+                    
+                    init() {
+                        this.on('change:attributes', () => this.updateContent());
+                        this.updateContent();
+                    },
+                    
+                    updateContent() {
+                        const varName = this.getAttributes()['data-var-name'] || 'variable';
+                        const bgColor = this.getAttributes()['data-bg-color'] || 'rgba(59, 130, 246, 0.1)';
+                        this.set('content', `{{${varName}}}`);
+                        this.addStyle({ 'background-color': bgColor });
+                    }
+                },
+                
+                view: {
+                    onRender() {
+                        this.el.addEventListener('dblclick', () => {
+                            const newName = prompt('Enter variable name:', this.model.getAttributes()['data-var-name'] || '');
+                            if (newName) {
+                                this.model.addAttributes({ 'data-var-name': newName });
+                            }
+                        });
+                    }
+                }
+            });
+            
+            // List variable component
+            dc.addType('list-variable', {
+                model: {
+                    defaults: {
+                        tagName: 'div',
+                        name: 'List Variable',
+                        editable: true,
+                        attributes: { 
+                            'data-list-variable': 'true',
+                            'contenteditable': 'false'
+                        },
+                        traits: [{
+                            type: 'text',
+                            label: 'List Item Variable',
+                            name: 'data-list-var',
+                            changeProp: 1
+                        }]
+                    },
+                    
+                    init() {
+                        this.on('change:attributes', () => this.updateContent());
+                        this.updateContent();
+                    },
+                    
+                    updateContent() {
+                        const varName = this.getAttributes()['data-list-var'] || 'item';
+                        this.set('content', `{{list.${varName}}}`);
+                    }
+                },
+                
+                view: {
+                    onRender() {
+                        this.el.addEventListener('dblclick', () => {
+                            const newName = prompt('Enter list variable name:', this.model.getAttributes()['data-list-var'] || '');
+                            if (newName) {
+                                this.model.addAttributes({ 'data-list-var': newName });
+                            }
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Setup keyboard shortcuts
+        function setupKeyboardShortcuts() {
+            const keymaps = editor.Keymaps;
+            
+            // Add keyboard shortcuts
+            keymaps.add('core:undo', 'ctrl+z', 'core:undo');
+            keymaps.add('core:redo', 'ctrl+y', 'core:redo');
+            keymaps.add('core:copy', 'ctrl+c', 'core:copy');
+            keymaps.add('core:paste', 'ctrl+v', 'core:paste');
+            
+            // Custom shortcuts
+            keymaps.add('custom:add-variable', 'alt+v', () => {
+                insertBlock('variable');
+            });
+            
+            keymaps.add('custom:add-text', 'alt+t', () => {
+                insertBlock('text');
+            });
+            
+            keymaps.add('custom:add-image', 'alt+i', () => {
+                insertBlock('image');
+            });
+            
+            keymaps.add('custom:delete', 'delete', () => {
+                const selected = editor.getSelected();
+                if (selected) {
+                    selected.remove();
+                }
+            });
+            
+            keymaps.add('custom:deselect', 'escape', () => {
+                editor.select();
+            });
+        }
+        
+        // Setup page settings
+        function setupPageSettings() {
+            const paperSizeSelect = document.getElementById('paperSize');
+            const orientationSelect = document.getElementById('orientation');
+            const marginsInput = document.getElementById('margins');
+            const pageContainer = document.getElementById('pageContainer');
+            
+            function updatePageSize() {
+                const size = paperSizeSelect.value;
+                const orientation = orientationSelect.value;
+                const margins = marginsInput.value + 'mm';
+                
+                // Remove existing size classes
+                pageContainer.className = pageContainer.className.replace(/page-\w+/g, '');
+                
+                // Add new size class
+                pageContainer.classList.add(`page-${size}`);
+                
+                // Handle orientation
+                if (orientation === 'landscape') {
+                    const canvas = editor.Canvas.getFrameEl();
+                    if (canvas) {
+                        canvas.style.transform = 'rotate(90deg)';
+                        canvas.style.transformOrigin = 'center';
+                    }
+                } else {
+                    const canvas = editor.Canvas.getFrameEl();
+                    if (canvas) {
+                        canvas.style.transform = 'none';
+                    }
+                }
+                
+                // Update margins
+                const canvasDoc = editor.Canvas.getDocument();
+                if (canvasDoc) {
+                    canvasDoc.body.style.padding = margins;
+                }
+            }
+            
+            paperSizeSelect.addEventListener('change', updatePageSize);
+            orientationSelect.addEventListener('change', updatePageSize);
+            marginsInput.addEventListener('change', updatePageSize);
+        }
+        
+        // Block insertion helper
+        function insertBlock(blockId) {
+            const block = editor.BlockManager.get(blockId);
+            if (!block) return;
+            
+            let content = block.get('content');
+            if (typeof content === 'function') {
+                content = content();
+            }
+            
+            const selected = editor.getSelected() || editor.getWrapper();
+            
+            if (blockId === 'variable') {
+                const varName = prompt('Enter variable name (e.g. invoice_number):');
+                if (!varName) return;
+                
+                const cleanName = varName.trim().replace(/[^a-z0-9_]/gi, '_');
+                content = {
+                    type: 'variable',
+                    content: `{{${cleanName}}}`,
+                    attributes: { 
+                        class: 'variable-element',
+                        'data-var-name': cleanName
+                    }
+                };
+            }
+            
+            if (blockId === 'list-item') {
+                const varName = prompt('Enter list variable name (e.g. item_name):');
+                if (!varName) return;
+                
+                const cleanName = varName.trim().replace(/[^a-z0-9_]/gi, '_');
+                content = {
+                    type: 'list-variable',
+                    content: `{{list.${cleanName}}}`,
+                    attributes: { 
+                        class: 'list-variable',
+                        'data-list-var': cleanName
+                    }
+                };
+            }
+            
+            const added = selected.append(content);
+            if (added) {
+                const component = Array.isArray(added) ? added[added.length - 1] : added;
+                editor.select(component);
+            }
+        }
+        
+        // Load default template
+        function loadDefaultTemplate() {
+            editor.setComponents(`
+                <div style="font-family: Arial, sans-serif; color: #374151; line-height: 1.6;">
+                    <!-- Header Section -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding: 20px 0;">
+                        <div style="flex: 1;">
+                            <div style="width: 120px; height: 60px; background: #f3f4f6; border: 2px dashed #d1d5db; display: flex; align-items: center; justify-content: center; color: #6b7280; margin-bottom: 15px; border-radius: 4px;">
+                                LOGO
+                            </div>
+                            <h2 style="margin: 0; font-size: 24px; color: #1f2937;">Your Company</h2>
+                            <p style="margin: 5px 0 0 0; color: #6b7280;">Professional Services</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <h1 style="margin: 0; font-size: 36px; color: #3b82f6; font-weight: bold;">INVOICE</h1>
+                            <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 18px;">#INV-001</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Invoice Info -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px;">
+                        <div>
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #1f2937;">Invoice Date:</h3>
+                            <span class="variable-element" data-var-name="invoice_date">{{invoice_date}}</span>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #1f2937;">Due Date:</h3>
+                            <span class="variable-element" data-var-name="due_date">{{due_date}}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Billing Section -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+                        <div>
+                            <h3 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">From:</h3>
+                            <div style="color: #374151; line-height: 1.6;">
+                                <p style="margin: 0; font-weight: 600;"><span class="variable-element" data-var-name="company_name">{{company_name}}</span></p>
+                                <p style="margin: 5px 0 0 0;"><span class="variable-element" data-var-name="company_address">{{company_address}}</span></p>
+                                <p style="margin: 0;"><span class="variable-element" data-var-name="company_city">{{company_city}}</span>, <span class="variable-element" data-var-name="company_state">{{company_state}}</span> <span class="variable-element" data-var-name="company_zip">{{company_zip}}</span></p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;">Bill To:</h3>
+                            <div style="color: #374151; line-height: 1.6;">
+                                <p style="margin: 0; font-weight: 600;"><span class="variable-element" data-var-name="client_name">{{client_name}}</span></p>
+                                <p style="margin: 5px 0 0 0;"><span class="variable-element" data-var-name="client_address">{{client_address}}</span></p>
+                                <p style="margin: 0;"><span class="variable-element" data-var-name="client_city">{{client_city}}</span>, <span class="variable-element" data-var-name="client_state">{{client_state}}</span> <span class="variable-element" data-var-name="client_zip">{{client_zip}}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Items Table -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #e5e7eb;">
+                        <thead>
+                            <tr style="background: #f9fafb;">
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151;">Description</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 80px;">Qty</th>
+                                <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 100px;">Rate</th>
+                                <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; width: 120px;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 12px; border-bottom: 1px solid #f3f4f6; color: #374151;"><span class="list-variable" data-list-var="description">{{list.description}}</span></td>
+                                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #f3f4f6; color: #374151;"><span class="list-variable" data-list-var="quantity">{{list.quantity}}</span></td>
+                                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #f3f4f6; color: #374151;"><span class="list-variable" data-list-var="rate">{{list.rate}}</span></td>
+                                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #f3f4f6; color: #374151;"><span class="list-variable" data-list-var="amount">{{list.amount}}</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <!-- Totals Section -->
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 40px;">
+                        <div style="min-width: 300px;">
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                                <span style="color: #6b7280;">Subtotal:</span>
+                                <span style="color: #374151; font-weight: 500;"><span class="variable-element" data-var-name="subtotal">{{subtotal}}</span></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                                <span style="color: #6b7280;">Tax:</span>
+                                <span style="color: #374151; font-weight: 500;"><span class="variable-element" data-var-name="tax">{{tax}}</span></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-top: 2px solid #e5e7eb; margin-top: 8px;">
+                                <span style="font-size: 18px; font-weight: 600; color: #1f2937;">Total:</span>
+                                <span style="font-size: 18px; font-weight: 600; color: #3b82f6;"><span class="variable-element" data-var-name="total">{{total}}</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="border-top: 1px solid #e5e7eb; padding-top: 30px; margin-top: 40px; text-align: center; color: #6b7280;">
+                        <p style="margin: 0 0 10px 0; font-size: 14px;">Thank you for your business!</p>
+                        <p style="margin: 0; font-size: 12px;">Visit us at <span class="variable-element" data-var-name="website">{{website}}</span> | <span class="variable-element" data-var-name="phone">{{phone}}</span></p>
+                    </div>
+                </div>
+            `);
+        }
+        
+        // Block click handlers
+        function setupBlockHandlers() {
+            document.querySelectorAll('.block-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const blockId = e.currentTarget.dataset.block;
+                    insertBlock(blockId);
+                    
+                    // Visual feedback
+                    e.currentTarget.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        e.currentTarget.style.transform = '';
+                    }, 150);
+                });
+            });
+        }
+        
+        // Toolbar functions
+        function undoAction() {
+            editor.runCommand('core:undo');
+        }
+        
+        function redoAction() {
+            editor.runCommand('core:redo');
+        }
+        
+        function clearCanvas() {
+            if (confirm('Are you sure you want to clear the canvas?')) {
+                editor.setComponents('');
+            }
+        }
+        
+        function previewMode() {
+            const modal = editor.Modal;
+            const pfx = editor.getConfig().stylePrefix;
+            const container = document.createElement('div');
+            const htmlContent = editor.getHtml();
+            const cssContent = editor.getCss();
+            
+            container.innerHTML = `
+                <div class="${pfx}preview-container" style="padding: 0;">
+                    <style>${cssContent}</style>
+                    <div style="background: white; padding: 20mm; max-width: 210mm; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.1);">
+                        ${htmlContent}
+                    </div>
+                </div>
+            `;
+            
+            modal.setTitle('Invoice Preview')
+                .setContent(container)
+                .open();
+        }
+        
+        function exportPDF() {
+            window.print();
+        }
+        
+        function toggleHelp() {
+            const helpDiv = document.getElementById('shortcutsHelp');
+            helpDiv.classList.toggle('show');
+            
+            setTimeout(() => {
+                helpDiv.classList.remove('show');
+            }, 5000);
+        }
+        
+        function applyCustomCSS() {
+            const customCSS = document.getElementById('customCSS').value;
+            if (customCSS.trim()) {
+                const canvas = editor.Canvas.getDocument();
+                let styleTag = canvas.getElementById('custom-styles');
+                
+                if (!styleTag) {
+                    styleTag = canvas.createElement('style');
+                    styleTag.id = 'custom-styles';
+                    canvas.head.appendChild(styleTag);
+                }
+                
+                styleTag.textContent = customCSS;
+                
+                // Show success message
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Applied!';
+                btn.style.background = '#10b981';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initEditor();
+            setupBlockHandlers();
+        });
+    </script>
+</body>
+</html>

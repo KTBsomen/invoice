@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrapesJS Invoice Builder</title>
+  <link href="https://unpkg.com/grapesjs/dist/css/grapes.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+    }
+
+    .editor-wrapper {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-header {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .header-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .header-btn.primary {
+      background: rgba(255, 255, 255, 0.9);
+      color: #6366f1;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .editor-container {
+      flex: 1;
+    }
+
+    #gjs {
+      height: 100%;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+
+    #templateSearch {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 15px;
+    }
+
+    .template-item {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      position: relative;
+      background: #fafafa;
+      transition: 0.3s;
+    }
+
+    .template-item:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .template-item img {
+      width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+
+    .template-item p {
+      margin: 10px 0 0;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .template-item .delete-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: red;
+      color: white;
+      border: none;
+      padding: 4px 6px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 12px;
+      z-index: 2;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="editor-wrapper">
+    <div class="editor-header">
+      <h1><i class="fas fa-file-invoice"></i> Invoice Builder</h1>
+      <div class="header-actions">
+        <button class="header-btn" onclick="saveProject()"><i class="fas fa-save"></i>Save</button>
+        <button class="header-btn" onclick="openModal()"><i class="fas fa-magic"></i>Load Template</button>
+        <button class="header-btn" onclick="previewInvoice()"><i class="fas fa-eye"></i>Preview</button>
+        <button class="header-btn primary" onclick="exportInvoice()"><i class="fas fa-download"></i>Export</button>
+      </div>
+    </div>
+    <div class="editor-container">
+      <div id="gjs"></div>
+    </div>
+  </div>
+
+  <div id="templateModal" class="modal">
+    <div class="modal-content">
+      <h3>Load a Template</h3>
+      <input type="text" id="templateSearch" placeholder="Search templates..." oninput="filterTemplates()" />
+      <div id="templateList" class="template-grid"></div>
+      <input type="file" accept="application/json" onchange="importFromFile(event)">
+      <br><br>
+      <button onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://unpkg.com/grapesjs"></script>
+  <script src="https://unpkg.com/grapesjs-blocks-basic"></script>
+  <script src="https://unpkg.com/grapesjs-preset-webpage"></script>
+  <script
+    src="https://cdn.jsdelivr.net/gh/VojtechLanka/grapesjs-blocks-table@master/dist/grapesjs-blocks-table.min.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script>
+    const STORAGE_KEY = 'invoice_templates';
+    const editor = grapesjs.init({
+      container: '#gjs',
+      height: '100%',
+      storageManager: false,
+      keyboardShortcuts: true,
+      deviceManager: {
+        devices: [
+          {
+            name: 'Desktop',
+            width: '', // Default full width
+          }
+        ]
+      },
+      fromElement: true,
+      canvas: {
+        styles: [],
+        scripts: [],
+      },
+      dragMode: 'absolute',
+      // Use relative units for positioning
+      styleManager: {
+        sectors: [
+          {
+            name: 'Position',
+            open: false,
+            buildProps: ['position', 'top', 'right', 'left', 'bottom', 'z-index'],
+            properties: [
+              { property: 'position' },
+              {
+                property: 'top',
+                type: 'integer',
+                units: ['%', 'dvh'],
+                defaults: '0%',
+                min: 0
+              },
+              {
+                property: 'right',
+                type: 'integer',
+                units: ['%', 'dvh'],
+                defaults: '0%',
+                min: 0
+              },
+              {
+                property: 'bottom',
+                type: 'integer',
+                units: ['%', 'dvh'],
+                defaults: '0%',
+                min: 0
+              },
+              {
+                property: 'left',
+                type: 'integer',
+                units: ['%', 'dvh'],
+                defaults: '0%',
+                min: 0
+              },
+              { property: 'z-index' }
+            ]
+          },
+        ]
+      },
+
+      plugins: ['gjs-blocks-basic', 'grapesjs-preset-webpage', 'grapesjs-blocks-table'],
+      pluginsOpts: {
+        'grapesjs-preset-webpage': {
+          useCustomTheme: false,
+        },
+        'grapesjs-blocks-table': { 'containerId': '#gjs' }
+      },
+    });
+
+
+    editor.BlockManager.add('custom-variable', {
+      label: 'Variable',
+      category: 'Variables',
+      attributes: { class: "fa fa-a" },
+      content: () => {
+        const varName = prompt('Enter variable name (e.g. invoice_number)');
+        if (!varName) return '';
+        const cleanName = varName.trim().replace(/[^a-z0-9-_]/gi, '_');
+        return {
+          type: 'variable',
+          attributes: {
+            'data-variable-name': cleanName,
+            class: 'gjs-var-text-color',
+          },
+          content: `{{${cleanName}}}`,
+        };
+      }
+    });
+
+    editor.BlockManager.add('repeatable-list', {
+      label: 'List',
+      category: 'Variables',
+      attributes: { class: "fa fa-list" },
+      content: () => {
+        const varName = prompt('Enter variable name (e.g. item_name)');
+        if (!varName) return '';
+        const cleanName = varName.trim().replace(/[^a-z0-9-_]/gi, '_');
+        return {
+          type: 'listItem',
+          attributes: {
+            'data-variable-name': cleanName,
+            class: 'gjs-var-list-color',
+          },
+          content: `{{listItem.${cleanName}}}`,
+        };
+      }
+    });
+
+
+    editor.DomComponents.addType('variable', {
+      isComponent: el => el.tagName === 'SPAN' && el.classList.contains('inline-var'),
+
+      model: {
+        defaults: {
+          tagName: 'span',
+          name: 'Variable',
+          editable: true,
+          droppable: false,
+          copyable: false,
+          attributes: { 'data-gjs-variable': 'true' },
+          content: '{{your_variable}}',
+        },
+      },
+      view: {
+        onRender() {
+          this.el.contentEditable = false;
+        },
+      },
+    });
+
+    editor.DomComponents.addType('listItem', {
+      model: {
+        defaults: {
+          tagName: 'span',
+          name: 'ListItem',
+          droppable: false,
+          copyable: false,
+          attributes: { 'data-gjs-list': 'true' },
+          content: '{{listItem.variable}}',
+        },
+      },
+      view: {
+        onRender() {
+          this.el.contentEditable = false;
+        },
+      },
+    });
+
+    editor.on('component:create', comp => {
+      const type = comp.get('type');
+      const id = comp.getId();
+
+      if (type === 'variable' || type === 'listItem') {
+        const attr = comp.getAttributes();
+
+        // Add a custom ID if not present
+        if (!attr.id) {
+          comp.addAttributes({ id: `var-${id}` });
+        }
+
+        // Add a custom class if not present
+        const existingClasses = comp.getClasses().map(cls => cls.id);
+        const customClass = `var-${id}`;
+        if (!existingClasses.includes(customClass)) {
+          comp.addClass(customClass);
+        }
+      }
+    });
+
+
+    function insertBlock(blockId) {
+      const block = editor.BlockManager.get(blockId);
+      if (!block) return;
+
+      const content = block.get('content');
+      const selected = editor.getSelected() || editor.getWrapper();
+
+      let added;
+
+      // If it's an object (component definition), insert using component manager
+      if (typeof content === 'object' && !Array.isArray(content)) {
+        added = selected.append(content);
+      }
+
+      // If it's an array of components
+      else if (Array.isArray(content)) {
+        added = selected.append(content);
+      }
+
+      // If it's HTML string, parse & add as real components
+      else if (typeof content === 'string') {
+        added = editor.DomComponents.getWrapper().append(content);
+      }
+
+      // Auto-select last added
+      if (Array.isArray(added)) {
+        editor.select(added[added.length - 1]);
+      } else if (added) {
+        editor.select(added);
+      }
+    }
+    editor.on('keymap:emit:custom:insert-variable', (id, shortcut, event) => {
+      console.log(`Shortcut triggered: ${id}`, shortcut);
+    });
+
+    editor.on('load', () => {
+      const keymaps = editor.Keymaps;
+
+      keymaps.add('custom:insert-variable', 'alt+v', (editor) => {
+        insertBlock('variable');
+      }, { prevent: true });
+
+      keymaps.add('custom:insert-list', 'alt+l', (editor) => {
+        insertBlock('repeatable-list');
+      }, { prevent: true });
+
+      keymaps.add('custom:insert-text', 'alt+t', (editor) => {
+        insertBlock('text');
+      }, { prevent: true });
+      const style = `
+    <style>
+      .gjs-var-text-color {
+        background-color: rgba(255, 255, 0, 0.3);
+        border: 1px dashed #f1c40f;
+        padding: 2px 4px;
+      }
+      .gjs-var-list-color {
+        background-color: rgba(173, 216, 230, 0.3);
+        border: 1px dashed #3498db;
+        padding: 5px;
+      }
+    </style>
+  `;
+      editor.Canvas.getDocument().head.insertAdjacentHTML('beforeend', style);
+    });
+
+
+
+
+
+    function generateThumbnail() {
+      return new Promise((resolve, reject) => {
+        const iframe = document.querySelector('.gjs-frame');
+        if (!iframe) return reject("Iframe not ready");
+
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        const body = doc.body;
+
+        html2canvas(body, {
+          backgroundColor: '#fff',
+          useCORS: true,
+          scale: 0.2,
+        }).then(canvas => {
+          resolve(canvas.toDataURL('image/png'));
+        }).catch(err => reject(err));
+      });
+    }
+    let currentProjectName;
+    const saveProject = async () => {
+      const thumbnail = await generateThumbnail();
+
+      if (!currentProjectName) {
+        const name = prompt("Enter template name:");
+        if (!name) return;
+        currentProjectName = name;
+      }
+
+      const template = {
+        name: currentProjectName,
+        html: editor.getHtml(),
+        css: editor.getCss(),
+        thumbnail,
+      };
+
+      const templates = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const existingIndex = templates.findIndex(t => t.name === currentProjectName);
+
+      if (existingIndex !== -1) {
+        // Create backup with version suffix
+        const backupName = `${currentProjectName}_backup_${new Date().getTime()}`;
+        // templates[existingIndex].name = backupName;
+        templates.splice(existingIndex, 1);
+
+        templates.push(template);
+      } else {
+        templates.push(template);
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+      alert("Saved");
+    };
+
+    const previewInvoice = () => {
+      const html = editor.getHtml();
+      const cleanedHTML = html
+        .replace(/ class="gjs-var-text-color"/g, '')
+        .replace(/ class="gjs-var-list-color"/g, '');
+
+      const css = editor.getCss();
+      const win = window.open();
+      win.document.write(`<!DOCTYPE html><html><head><style>${css}</style></head><body>${cleanedHTML}</body></html>`);
+      win.document.close();
+    };
+    /**
+  * Wraps repeating HTML elements with a Handlebars `{{#each}}` loop
+  * by identifying variables like `{{listName.prop}}`.
+  *
+  * @param {string} html The raw HTML string.
+  * @param {object} structure An object defining the lists, e.g., `{ lists: { products: [] } }`.
+  * @returns {string} The HTML string with Handlebars loops added.
+  */
+    function wrapHandlebarsLoops(html) {
+      const listVariables = JSON.parse(getVariablesFromHtml(html)).lists || {};
+
+      for (const listName in listVariables) {
+        // Regex to find all occurrences of `{{listName.prop}}`
+        const regex = new RegExp(`{{\\s*${listName}\\.([\\w]+)\\s*}}`, 'g');
+
+        // Find all matches and their positions in the HTML string
+        const matches = [];
+        let match;
+        while ((match = regex.exec(html)) !== null) {
+          matches.push({
+            index: match.index,
+            fullMatch: match[0]
+          });
+        }
+
+        if (matches.length === 0) {
+          continue;
+        }
+
+        // A more robust helper function to find the lowest common ancestor tag that contains all matches.
+        function findLowestCommonAncestorTag(htmlString, matches) {
+          // Find the start and end of the content that needs to be wrapped.
+          const startOfMatches = matches[0].index;
+          const endOfMatches = matches[matches.length - 1].index + matches[matches.length - 1].fullMatch.length;
+
+          let lowestAncestor = null;
+
+          // Iterate backward from the first match to find the first opening tag.
+          for (let i = startOfMatches; i >= 0; i--) {
+            if (htmlString[i] === '<') {
+              const tagEnd = htmlString.indexOf('>', i);
+              if (tagEnd === -1) continue;
+
+              const tagName = htmlString.substring(i + 1, tagEnd).split(/\s/)[0].replace('/', '');
+
+              // Find the corresponding closing tag.
+              let openCount = 1;
+              let endPos = -1;
+              let searchPosition = tagEnd + 1;
+
+              while (searchPosition < htmlString.length) {
+                const nextOpenTag = htmlString.indexOf(`<${tagName}`, searchPosition);
+                const nextCloseTag = htmlString.indexOf(`</${tagName}>`, searchPosition);
+
+                if (nextCloseTag === -1) break;
+
+                if (nextOpenTag !== -1 && nextOpenTag < nextCloseTag) {
+                  openCount++;
+                  searchPosition = nextOpenTag + 1;
+                } else {
+                  openCount--;
+                  searchPosition = nextCloseTag + 1;
+                  if (openCount === 0) {
+                    endPos = nextCloseTag + `</${tagName}>`.length;
+                    break;
+                  }
+                }
+              }
+
+              // Check if this tag completely encloses all the matches.
+              if (endPos > endOfMatches) {
+                lowestAncestor = { start: i, end: endPos };
+                break;
+              }
+            }
+          }
+          return lowestAncestor;
+        }
+
+        const wrapPositions = findLowestCommonAncestorTag(html, matches);
+
+        if (!wrapPositions) {
+          continue;
+        }
+
+        const { start, end } = wrapPositions;
+        const sectionToWrap = html.substring(start, end);
+
+        // Replace `{{listName.prop}}` with `{{prop}}` within the isolated section.
+        const modifiedSection = sectionToWrap.replace(regex, '{{$1}}');
+
+        // Create the final wrapped section
+        const wrappedSection = `{{#each ${listName}}}\n${modifiedSection}\n{{/each}}`;
+
+        // Replace the original section with the new, wrapped section
+        html = html.substring(0, start) + wrappedSection + html.substring(end);
+      }
+
+      return html;
+    }
+
+    function getVariablesFromHtml(html) {
+      const matches = [...html.matchAll(/{{\s*(.*?)\s*}}/g)];
+
+      const variables = {};
+      const listVariables = {};
+
+      for (const match of matches) {
+        const full = match[1]; // e.g., "customer_name" or "items.item_name"
+        if (full.includes('.')) {
+          const [listName, propName] = full.split('.');
+          if (!listVariables[listName]) {
+            listVariables[listName] = new Set();
+          }
+          listVariables[listName].add(propName);
+        } else {
+          variables[full] = '';
+        }
+      }
+
+      // Convert listVariables sets to arrays
+      for (const key in listVariables) {
+        listVariables[key] = Array.from(listVariables[key]);
+      }
+
+      const finalData = {
+        variables,
+        lists: listVariables
+      };
+
+      const jsonString = JSON.stringify(finalData, null, 2);
+      return jsonString;
+    }
+
+
+    async function savePDF(html) {
+      let x = await fetch('http://192.168.0.113:8080/pdf-html', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+
+        body: JSON.stringify({
+          html: html,
+        }),
+      });
+      let value = await x.blob();
+      const url = URL.createObjectURL(value);
+      console.log(value, url)
+
+
+      return url;
+    }
+    const exportInvoice = () => {
+      const project = {
+        html: editor.getHtml(),
+        css: editor.getCss()
+      };
+
+      let name = prompt("Enter template name:");
+      if (!name) return;
+
+      // Ensure name is valid
+      name = name.trim().replace(/[^a-z0-9-_]/gi, '_');
+      let cleanedHTML = project.html
+        .replace(/ class="gjs-var-text-color"/g, '')
+        .replace(/ class="gjs-var-list-color"/g, '');
+
+      const fullHtml = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>${name}</title>
+    <style>
+      ${project.css}
+    </style>
+  </head>
+  <body>
+    ${wrapHandlebarsLoops(cleanedHTML)}
+  </body>
+  </html>
+  `;
+      savePDF(fullHtml)
+      const zip = new JSZip();
+      zip.file(name + '.json', JSON.stringify(project, null, 2));
+      zip.file(name + '_Variables' + '.json', getVariablesFromHtml(project.html));
+      zip.file(name + '.html', fullHtml);
+      generateThumbnail().then(imgData => {
+        const imgBase64 = imgData.split(',')[1];
+        zip.file(name + '-preview.png', imgBase64, { base64: true });
+
+        zip.generateAsync({ type: 'blob' }).then(content => {
+          const zipLink = document.createElement('a');
+          zipLink.href = URL.createObjectURL(content);
+          zipLink.download = name + '.zip';
+          zipLink.click();
+        });
+      });
+    };
+
+    let allTemplates = [];
+
+
+    const openModal = () => {
+      const modal = document.getElementById('templateModal');
+      const container = document.getElementById('templateList');
+      const search = document.getElementById('templateSearch');
+      container.innerHTML = '';
+      search.value = '';
+
+      allTemplates = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      renderTemplates(allTemplates);
+
+      modal.style.display = 'flex';
+    };
+
+    const closeModal = () => {
+      document.getElementById('templateModal').style.display = 'none';
+    };
+
+    const renderTemplates = (templates) => {
+      const container = document.getElementById('templateList');
+      container.innerHTML = '';
+
+      templates.forEach((tpl, i) => {
+        const div = document.createElement('div');
+        div.className = 'template-item';
+        div.innerHTML = `
+      <button class="delete-btn" onclick="deleteTemplate(event, ${i})">&times;</button>
+      <img src="${tpl.thumbnail}" alt="Template Thumbnail" />
+      <p>${tpl.name}</p>
+    `;
+        div.onclick = (e) => {
+          if (e.target.classList.contains('delete-btn')) return;
+          currentProjectName = tpl.name
+          editor.setComponents(tpl.html);
+          editor.setStyle(tpl.css);
+          closeModal();
+        };
+        container.appendChild(div);
+      });
+    };
+
+    const deleteTemplate = (e, index) => {
+      e.stopPropagation();
+      if (!confirm('Are you sure you want to delete this template?')) return;
+      allTemplates.splice(index, 1);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allTemplates));
+      renderTemplates(allTemplates);
+    };
+
+    const filterTemplates = () => {
+      const keyword = document.getElementById('templateSearch').value.toLowerCase();
+      const filtered = allTemplates.filter(t => t.name.toLowerCase().includes(keyword));
+      renderTemplates(filtered);
+    };
+
+    const importFromFile = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = JSON.parse(e.target.result);
+        if (content.html && content.css) {
+          editor.setComponents(content.html);
+          editor.setStyle(content.css);
+          closeModal();
+        } else {
+          alert("Invalid template file");
+        }
+      };
+      reader.readAsText(file);
+    };
+  </script>
+</body>
+
+</html>
