@@ -41,10 +41,21 @@ type Provider struct {
 	mu sync.Mutex `json:"-"`
 }
 
-// ChatMessage represents a chat message
+// Structs for image + text parts
+type MessagePart struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
+	ImageURL *ImageURLObject `json:"image_url,omitempty"`
+}
+
+type ImageURLObject struct {
+	URL string `json:"url"`
+}
+
+// Flexible ChatMessage
 type ChatMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"` // string or []MessagePart
 }
 
 // ChatRequest represents the standardized request format
@@ -229,11 +240,11 @@ func (p *Pool) ConvertToProviderFormat(provider *Provider, req *ChatRequest) ([]
 
 		for _, msg := range req.Messages {
 			if msg.Role == "system" {
-				systemMsg = msg.Content
+				systemMsg = msg.Content.(string)
 			} else {
 				messages = append(messages, map[string]string{
 					"role":    msg.Role,
-					"content": msg.Content,
+					"content": msg.Content.(string),
 				})
 			}
 		}

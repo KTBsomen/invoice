@@ -85,9 +85,13 @@ func generatePDF(url string) ([]byte, error) {
 	defer page.MustClose()
 
 	page.MustWaitLoad()
-
+	zero := 0.0
 	reader, err := page.PDF(&proto.PagePrintToPDF{
 		PrintBackground: true,
+		MarginTop:       &zero,
+		MarginBottom:    &zero,
+		MarginLeft:      &zero,
+		MarginRight:     &zero,
 	})
 	if err != nil {
 		return nil, err
@@ -108,8 +112,13 @@ func generatePDFFromHTML(html string) ([]byte, error) {
 	encodedHTML := base64.StdEncoding.EncodeToString([]byte(html))
 	page.MustNavigate("data:text/html;base64," + encodedHTML)
 	page.MustWaitLoad()
+	zero := 0.0
 	reader, err := page.PDF(&proto.PagePrintToPDF{
 		PrintBackground: true,
+		MarginTop:       &zero,
+		MarginBottom:    &zero,
+		MarginLeft:      &zero,
+		MarginRight:     &zero,
 	})
 	if err != nil {
 		return nil, err
@@ -147,7 +156,7 @@ You can interpret **base64-encoded images** and recreate their design as **fully
 4. Ensure consistent spacing, alignment, and typography.
 5. If the design contains repeating elements (invoice items, products, etc.), **only include a single placeholder row** in the HTML.
 6. Recreate colors, spacing, fonts, and layout from the given base64 image as closely as possible.
-
+7. very very important: Output **only HTML with inline CSS** no need to explain anything or what have you done or anything related or unrelated.
 **Example (Structure Only):**
 
 
@@ -210,7 +219,7 @@ func main() {
 		Type:              llmpool.ProviderGroq,
 		APIKey:            os.Getenv("API_1"),
 		BaseURL:           "https://api.groq.com/openai/v1",
-		Model:             "openai/gpt-oss-20b",
+		Model:             "meta-llama/llama-4-maverick-17b-128e-instruct",
 		Priority:          1,
 		RequestsPerMinute: 30,
 	})
@@ -230,19 +239,39 @@ func main() {
 	})
 	app.Post("/create/ai", checkAuth, func(res *fiber.Ctx) error {
 		var body struct {
-			Message string `json:"prompt"`
+			Message     string `json:"prompt"`
+			Base64Image string `json:"image,omitempty"`
 		}
 
 		if err := res.BodyParser(&body); err != nil {
 			return res.Status(400).JSON(fiber.Map{"error": "Invalid JSON body"})
 		}
-		// Use the pool
-		req := &llmpool.ChatRequest{
-			Messages: []llmpool.ChatMessage{
-				{Role: "system",
-					Content: systemPrompt},
+		var messages []llmpool.ChatMessage
+
+		if body.Base64Image != "" {
+			// Send text + image as structured message
+			messages = []llmpool.ChatMessage{
+				{
+					Role: "user",
+					Content: []llmpool.MessagePart{
+						{Type: "text", Text: body.Message},
+						{Type: "image_url", ImageURL: &llmpool.ImageURLObject{
+							URL: body.Base64Image,
+						}},
+					},
+				},
+			}
+		} else {
+			// Plain text message only
+			messages = []llmpool.ChatMessage{
 				{Role: "user", Content: body.Message},
-			},
+			}
+		}
+
+		// Use the pool
+
+		req := &llmpool.ChatRequest{
+			Messages:    append([]llmpool.ChatMessage{{Role: "system", Content: systemPrompt}}, messages...),
 			Temperature: 0.7,
 			MaxTokens:   8000,
 		}
